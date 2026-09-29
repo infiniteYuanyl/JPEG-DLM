@@ -5,7 +5,6 @@ from contextlib import nullcontext
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from omegaconf import OmegaConf
 from safetensors.torch import load_file
 
 from cores.modules.flow import euler_rollout, solver_grid
@@ -29,36 +28,31 @@ class JPEGDLM(nn.Module):
         self.seq_len = int(cfg.data.seq_len)
         self.latent_len = int(model_cfg.latent_len)
         self.latent_dim = int(model_cfg.latent_dim)
-        self.bottleneck_dim = int(model_cfg.bottleneck_dim)
-        # Width of the frozen T5 encoder features that the decompressor restores.
-        self.feature_dim = int(model_cfg.get("feature_dim", 512))
-        self.vocab_size = int(model_cfg.vocab_size)
+        self.feature_dim = 512  # width of the T5-small features
 
         codec_cfg = model_cfg.codec
         self.compressor = Compressor(
             feature_dim=self.feature_dim,
             latent_dim=self.latent_dim,
-            bottleneck_dim=self.bottleneck_dim,
+            bottleneck_dim=int(model_cfg.bottleneck_dim),
             num_latents=self.latent_len,
             layers=int(codec_cfg.layers),
             heads=int(codec_cfg.heads),
             mlp_ratio=float(codec_cfg.mlp_ratio),
-            dropout=float(codec_cfg.dropout),
             max_len=self.seq_len,
         )
         self.decompressor = Decompressor(
             latent_dim=self.latent_dim,
             feature_dim=self.feature_dim,
-            bottleneck_dim=self.bottleneck_dim,
+            bottleneck_dim=int(model_cfg.bottleneck_dim),
             num_latents=self.latent_len,
             layers=int(codec_cfg.layers),
             heads=int(codec_cfg.heads),
             mlp_ratio=float(codec_cfg.mlp_ratio),
-            dropout=float(codec_cfg.dropout),
             max_len=self.seq_len,
         )
         self.unembed_proj = nn.Linear(self.feature_dim, 512)
-        self.lm_head = nn.Linear(512, self.vocab_size, bias=True)
+        self.lm_head = nn.Linear(512, int(model_cfg.vocab_size), bias=True)
 
         dit_cfg = model_cfg.dit
         self.dit = LatentDiT(
@@ -67,17 +61,16 @@ class JPEGDLM(nn.Module):
             depth=int(dit_cfg.depth),
             heads=int(dit_cfg.heads),
             mlp_ratio=float(dit_cfg.mlp_ratio),
-            dropout=float(dit_cfg.dropout),
             latent_len=self.latent_len,
             time_tokens=int(dit_cfg.time_tokens),
             sc_tokens=int(dit_cfg.sc_tokens),
             mode_tokens=int(dit_cfg.mode_tokens),
             freq_dim=int(dit_cfg.freq_dim),
-            bottleneck_dim=self.bottleneck_dim,
+            bottleneck_dim=int(model_cfg.bottleneck_dim),
         )
-        # Per-channel latent mean and scale.
-        self.register_buffer("latent_mean", torch.zeros(self.latent_dim), persistent=True)
-        self.register_buffer("latent_scale", torch.ones(self.latent_dim), persistent=True)
+        # Per-channel mean and inverse standard deviation (1 / sigma) of the compressed latents.
+        self.register_buffer("latent_mean", torch.zeros(self.latent_dim))
+        self.register_buffer("latent_scale", torch.ones(self.latent_dim))
 
     def standardize(self, z_raw: torch.Tensor) -> torch.Tensor:
         mean = self.latent_mean.to(device=z_raw.device, dtype=z_raw.dtype).view(1, 1, -1)
@@ -87,21 +80,21 @@ class JPEGDLM(nn.Module):
     def unstandardize(self, z: torch.Tensor) -> torch.Tensor:
         mean = self.latent_mean.to(device=z.device, dtype=z.dtype).view(1, 1, -1)
         scale = self.latent_scale.to(device=z.device, dtype=z.dtype).view(1, 1, -1)
-        return z / scale.clamp_min(1.0e-8) + mean
+        return z / scale + mean
 
     def decode(self, z: torch.Tensor) -> torch.Tensor:
-        # The decompressor gets unstandardize(standardize(unstandardize(z))). This changes only
-        # rounding, but the samples in the paper were drawn this way.
+        # Equal to unstandardize(z) up to float rounding; the paper's samples were drawn
+        # with this exact sequence.
         z = self.unstandardize(self.standardize(self.unstandardize(z)))
-        return self.decompressor(z, seq_len=self.seq_len)
+        return self.decompressor(z)
 
     def logits(self, h_hat: torch.Tensor) -> torch.Tensor:
         return self.lm_head(F.gelu(self.unembed_proj(h_hat)))
 
     @classmethod
-    def from_pretrained(cls, checkpoint, config, device="cpu"):
-        """Load a ``.safetensors`` checkpoint with its model configuration from ``configs/``."""
-        model = cls(OmegaConf.load(str(config)))
+    def from_pretrained(cls, checkpoint, cfg, device="cpu"):
+        """Build the model from a loaded configuration and load a ``.safetensors`` checkpoint."""
+        model = cls(cfg)
         model.load_state_dict(load_file(str(checkpoint), device="cpu"), strict=True)
         return model.to(torch.device(device)).eval()
 
@@ -116,8 +109,10 @@ class JPEGDLM(nn.Module):
     ) -> torch.Tensor:
         """Draw ``num_samples`` token rows with the Euler sampler.
 
-        ``quantile_grid`` uses the fixed quantile time grid of ``solver_grid``
-        instead of a random one.
+        After the last Euler step, the decode branch predicts the clean
+        embedding once at t = 1, and the decompressor and the token projection
+        map it to token ids. ``quantile_grid`` uses the fixed quantile time grid
+        of ``solver_grid`` instead of a random one.
         """
         count = int(num_samples)
         device = next(self.parameters()).device
@@ -136,10 +131,11 @@ class JPEGDLM(nn.Module):
         if device.type == "cuda":
             from torch.nn.attention import SDPBackend, sdpa_kernel
 
-            # Pin the attention kernel so that bf16 sampling is reproducible on a given GPU (flash attention rounds differently).
+            # The samples in the paper were drawn with the memory-efficient attention kernel
+            # (math is the fallback); flash attention rounds bf16 differently.
             kernel_context = sdpa_kernel([SDPBackend.EFFICIENT_ATTENTION, SDPBackend.MATH])
         with kernel_context:
-            z = euler_rollout(self.dit, z, grid, sc_scale=scale, t_eps=0.05)
+            z = euler_rollout(self.dit, z, grid, sc_scale=scale)
             ones = torch.ones(count, device=device, dtype=torch.float32)
-            x_dec = self.dit(z, ones, self_cond=None, sc_scale=scale, decode=True)
+            x_dec = self.dit(z, ones, sc_scale=scale, decode=True)
             return self.logits(self.decode(x_dec)).argmax(dim=-1)

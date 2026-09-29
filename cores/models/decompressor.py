@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 
@@ -26,66 +24,37 @@ class Decompressor(nn.Module):
         layers: int = 6,
         heads: int = 8,
         mlp_ratio: float = 4.0,
-        dropout: float = 0.0,
         max_len: int = 128,
     ):
         super().__init__()
-        self.latent_dim = int(latent_dim)
-        self.feature_dim = int(feature_dim)
-        self.bottleneck_dim = int(bottleneck_dim)
-        self.num_latents = int(num_latents)
+        latent_dim = int(latent_dim)
         self.max_len = int(max_len)
-        if self.latent_dim % int(heads) != 0:
-            raise ValueError("latent_dim must be divisible by heads")
-        dim_head = self.latent_dim // int(heads)
 
-        self.pos_emb = AbsolutePositionalEmbedding(self.latent_dim, self.max_len)
-        self.pos_latent = AbsolutePositionalEmbedding(self.latent_dim, self.num_latents)
-        self.base_query = nn.Parameter(torch.empty(1, 1, self.latent_dim))
-        nn.init.normal_(self.base_query, mean=0.0, std=0.02)
-        self.query_ffn = FeedForward(self.latent_dim, mult=mlp_ratio, dropout=dropout)
+        self.pos_emb = AbsolutePositionalEmbedding(latent_dim, self.max_len)
+        self.pos_latent = AbsolutePositionalEmbedding(latent_dim, int(num_latents))
+        self.base_query = nn.Parameter(torch.zeros(1, 1, latent_dim))
+        self.query_ffn = FeedForward(latent_dim, mult=mlp_ratio)
         self.query_gate = ScaleGate()
         self.layers = nn.ModuleList(
             [
                 DecoderBlock(
-                    embedding_dim=self.latent_dim,
-                    latent_dim=self.latent_dim,
-                    hidden=self.latent_dim,
+                    embedding_dim=latent_dim,
+                    latent_dim=latent_dim,
+                    hidden=latent_dim,
                     heads=int(heads),
-                    dim_head=dim_head,
+                    dim_head=latent_dim // int(heads),
                     mlp_ratio=float(mlp_ratio),
-                    dropout=float(dropout),
                 )
                 for _ in range(int(layers))
             ]
         )
-        self.out_proj = FeatureBottleneckProjection(
-            self.latent_dim,
-            self.bottleneck_dim,
-            self.feature_dim,
-            bias=False,
-        )
+        self.out_proj = FeatureBottleneckProjection(latent_dim, int(bottleneck_dim), int(feature_dim))
 
-    def forward(self, latents: torch.Tensor, seq_len: Optional[int] = None) -> torch.Tensor:
-        if latents.dim() != 3:
-            raise ValueError(f"latents must be [B,N,D], got {tuple(latents.shape)}")
-        batch, latent_len, dim = latents.shape
-        if dim != self.latent_dim:
-            raise ValueError(f"latent dim must be {self.latent_dim}, got {dim}")
-        if latent_len > self.num_latents:
-            raise ValueError(
-                f"latent length {latent_len} exceeds num_latents={self.num_latents}"
-            )
-        target_len = self.max_len if seq_len is None else int(seq_len)
-        if target_len > self.max_len:
-            raise ValueError(
-                f"sequence length {target_len} exceeds max_len={self.max_len}"
-            )
+    def forward(self, latents: torch.Tensor) -> torch.Tensor:
         query = self.base_query.to(device=latents.device, dtype=latents.dtype)
-        query = query.expand(batch, target_len, -1)
-        mask = torch.ones(batch, target_len, device=latents.device, dtype=latents.dtype)
-        x = self.query_gate(self.query_ffn(query), mask) + self.pos_emb(query)
+        query = query.expand(latents.shape[0], self.max_len, -1)
+        x = self.query_gate(self.query_ffn(query)) + self.pos_emb(query)
         z = latents + self.pos_latent(latents)
         for layer in self.layers:
-            x = layer(z, x, mask)
+            x = layer(z, x)
         return self.out_proj(x)

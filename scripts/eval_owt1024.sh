@@ -3,8 +3,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-OUTPUT_DIR="${OUTPUT_DIR:-outputs/owt1024_eval}"
-DEVICE="${DEVICE:-cuda}"
+OUTPUT_DIR=outputs/owt1024_eval
+DEVICE=cuda
 # faiss, used by MAUVE, can stall when it starts one thread per core.
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-8}"
 
@@ -21,7 +21,7 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-# Sample seeds 0 to 4 with the paper settings.
+# Remove predictions from an earlier run, then sample seeds 0 to 4 with the paper settings.
 rm -f "$OUTPUT_DIR"/generations/predictions_seed*.jsonl
 bash scripts/generate_owt1024.sh "${ARGS[@]}" --output "$OUTPUT_DIR/generations" --device "$DEVICE"
 

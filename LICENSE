@@ -2,6 +2,9 @@ MIT License
 
 Copyright (c) 2026 JPEG-DLM Authors
 
+Portions of cores/models/layers.py and cores/models/dit.py are adapted from ELF
+(https://github.com/lillian039/ELF), Copyright (c) 2026 ELF authors, MIT License.
+
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights

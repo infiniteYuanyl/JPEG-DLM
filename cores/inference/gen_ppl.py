@@ -39,11 +39,11 @@ def score_gen_ppl(
 ) -> dict[str, Any]:
     """Token-weighted Gen-PPL and mean per-text unigram entropy.
 
-    Each text is scored on its first ``MAX_LENGTH`` tokens, and its first token
-    is only context. With ``prepend_bos`` the scorer's BOS token
-    (``<|endoftext|>`` for GPT-2) is put in front of the text as context, so
-    its first ``MAX_LENGTH - 1`` tokens are all scored. Entropy is computed on
-    the text tokens, without the BOS. Blank texts are skipped.
+    Each text is truncated to ``MAX_LENGTH`` GPT-2 tokens, and its first token
+    is used only as context. With ``prepend_bos``, ``<|endoftext|>`` is
+    prepended as context, so the first ``MAX_LENGTH - 1`` text tokens are all
+    scored. Entropy ignores the BOS. Blank texts are skipped; without BOS, so
+    are one-token texts.
     """
 
     budget = MAX_LENGTH - 1 if prepend_bos else MAX_LENGTH
