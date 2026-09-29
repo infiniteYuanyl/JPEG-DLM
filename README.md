@@ -2,7 +2,7 @@
 
 [![arXiv](https://img.shields.io/badge/arXiv-2609.33698-b31b1b.svg)](https://arxiv.org/abs/2609.33698)
 
-JPEG-DLM (**J**oint-embedding **P**rediction for **E**fficient **G**eneration with **D**iffusion **L**anguage **M**odels) is a diffusion language model that jointly learns compressed embeddings for efficient and reliable text generation. Compression reduces the latent length, with one latent covering several tokens, so each sampling step is cheaper. Instead of fixing the compressed embedding space before training the diffusion model, JPEG-DLM jointly trains a compressor, a flow matching model and a decoding module. With joint-embedding prediction, it learns compressed embeddings that are more structured and easier to model with diffusion. In this way, JPEG-DLM generates compressed embeddings efficiently, and these embeddings can be reliably decoded into tokens, which leads to efficient text generation.
+JPEG-DLM (**J**oint-embedding **P**rediction for **E**fficient **G**eneration with **D**iffusion **L**anguage **M**odel) is a diffusion language model that jointly learns compressed embeddings for efficient and reliable text generation. Compression reduces the latent length, with one latent covering several tokens, so each sampling step is cheaper. Instead of fixing the compressed embedding space before training the diffusion model, JPEG-DLM jointly trains a compressor, a flow matching model and a decoding module. With joint-embedding prediction, it learns compressed embeddings that are more structured and easier to model with diffusion. In this way, JPEG-DLM generates compressed embeddings efficiently, and these embeddings can be reliably decoded into tokens, which leads to efficient text generation.
 
 <p align="center">
   <img src="assets/insight.png" alt="Fixed and jointly learned compressed embedding spaces" width="100%">
@@ -56,12 +56,14 @@ bash scripts/generate_owt1024.sh --checkpoint checkpoints/jpeg_dlm_owt1024_r0.5.
 
 ## Evaluation
 
-The evaluation scripts sample with five random seeds and report Gen-PPL, entropy and MAUVE. Averaged over the five seeds, they reproduce the results in the paper:
+The evaluation scripts sample with seeds 0 to 4 and report Gen-PPL, entropy and MAUVE. Averaged over the five seeds, they reproduce the results in the paper:
 
 | Dataset | Gen-PPL | Entropy | MAUVE |
 |---|---:|---:|---:|
 | LM1B | 96.76 | 4.263 | 0.951 |
 | OWT | 34.52 | 5.067 | 0.801 |
+
+Gen-PPL is computed with GPT-2 Large; for OWT, an `<|endoftext|>` token is put in front of each sample so that its first token is scored as well. MAUVE uses GPT-2 Large features of the samples and of the 1,024 reference texts in `references/`, both cut to their first 96 (LM1B) or 768 (OWT) GPT-2 tokens, with MAUVE seed 42. The reference texts are packed rows of the LM1B test split and of the OWT training data, decoded with the T5 tokenizer like the samples.
 
 ### LM1B
 
