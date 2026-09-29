@@ -75,6 +75,22 @@ bash scripts/eval_lm1b.sh --checkpoint checkpoints/jpeg_dlm_lm1b_r0.25.safetenso
 bash scripts/eval_owt1024.sh --checkpoint checkpoints/jpeg_dlm_owt1024_r0.5.safetensors
 ```
 
+## Citation
+
+If you find this work useful, please cite our paper:
+
+```bibtex
+@misc{yuan2026jpegdlm,
+  title={One Latent, Many Tokens: Jointly Learning Compressed Embeddings for Efficient Language Diffusion},
+  author={Yulin Yuan and Ying Zhang and Xiangming Meng},
+  year={2026},
+  eprint={2609.33698},
+  archivePrefix={arXiv},
+  primaryClass={cs.AI},
+  url={https://arxiv.org/abs/2609.33698},
+}
+```
+
 ## Acknowledgements
 
 Our implementation builds on [ELF](https://github.com/lillian039/ELF) and [COSMOS](https://github.com/MeshchaninovViacheslav/cosmos). We thank the authors for making their code publicly available.
