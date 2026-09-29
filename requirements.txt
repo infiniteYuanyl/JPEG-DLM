@@ -1,0 +1,11 @@
+torch==2.4.0
+transformers==4.44.2
+tokenizers==0.19.1
+sentencepiece==0.2.0
+safetensors==0.6.2
+omegaconf==2.3.0
+numpy==1.26.3
+mauve-text==0.4.0
+faiss-cpu==1.13.0
+scikit-learn==1.4.0
+scipy==1.13.1

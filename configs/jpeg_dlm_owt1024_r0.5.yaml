@@ -1,0 +1,27 @@
+data:
+  tokenizer: t5-small
+  tokenizer_revision: df1b051c49625cf57a3d0d8d3863ed4d13564fe4
+  seq_len: 1024
+  eos_id: 1
+model:
+  t5_name: t5-small
+  t5_revision: df1b051c49625cf57a3d0d8d3863ed4d13564fe4
+  vocab_size: 32100
+  latent_len: 512
+  latent_dim: 512
+  bottleneck_dim: 128
+  codec:
+    layers: 6
+    heads: 8
+    mlp_ratio: 4.0
+    dropout: 0.0
+  dit:
+    hidden: 768
+    depth: 12
+    heads: 12
+    mlp_ratio: 4.0
+    dropout: 0.0
+    time_tokens: 4
+    sc_tokens: 4
+    mode_tokens: 4
+    freq_dim: 256
