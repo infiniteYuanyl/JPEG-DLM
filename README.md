@@ -28,15 +28,13 @@ pip install -r requirements.txt
 
 ## Checkpoints
 
-We provide the checkpoints for [LM1B](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1SdaDFcfoQFEnZYIcFRQvcFxWRHEglbmd) and [OWT](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1ActESuriels9u5kZkjv6P1usNxYIJg5u). Place them in `checkpoints/` as follows:
+Save the weights in `checkpoints/` with the filenames below. Model configurations are included in `configs/`.
 
-```text
-checkpoints/
-├── jpeg_dlm_lm1b_r0.25.safetensors
-└── jpeg_dlm_owt1024_r0.5.safetensors
-```
-
-The corresponding model configurations are in `configs/`.
+| Dataset | Compression | Weights |
+|---|---|---|
+| LM1B | 4× (default) | [jpeg_dlm_lm1b_r0.25.safetensors](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1fCPXLDFJnFIM7xxu1apVDBITg9fbmAxw) |
+| LM1B | 2× | [jpeg_dlm_lm1b_r0.5.safetensors](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1TUgRm2w4dhk6j62lGH3v4N66C1kr8qlY) |
+| OWT-1024 | 2× | [jpeg_dlm_owt1024_r0.5.safetensors](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1ActESuriels9u5kZkjv6P1usNxYIJg5u) |
 
 ## Sampling
 
@@ -44,8 +42,16 @@ To sample from a pre-trained model, pass its checkpoint to the sampling script. 
 
 ### LM1B
 
+The default command uses 4× compression:
+
 ```bash
 bash scripts/generate_lm1b.sh --checkpoint checkpoints/jpeg_dlm_lm1b_r0.25.safetensors --steps 32 --sc-scale 3.0
+```
+
+For 2× compression, select the matching configuration and checkpoint:
+
+```bash
+bash scripts/generate_lm1b.sh --config configs/jpeg_dlm_lm1b_r0.5.yaml --checkpoint checkpoints/jpeg_dlm_lm1b_r0.5.safetensors --output outputs/lm1b_2x_generations --steps 32 --sc-scale 3.0
 ```
 
 ### OWT
@@ -56,19 +62,24 @@ bash scripts/generate_owt1024.sh --checkpoint checkpoints/jpeg_dlm_owt1024_r0.5.
 
 ## Evaluation
 
-The evaluation scripts sample with seeds 0 to 4 and report Gen-PPL, entropy and MAUVE. Averaged over the five seeds, they reproduce the results in the paper:
-
-| Dataset | Gen-PPL | Entropy | MAUVE |
-|---|---:|---:|---:|
-| LM1B | 96.76 | 4.263 | 0.951 |
-| OWT | 34.52 | 5.067 | 0.801 |
-
-Gen-PPL is computed with GPT-2 Large; for OWT, an `<|endoftext|>` token is put in front of each sample so that its first token is scored as well. MAUVE uses GPT-2 Large features of the samples and of the 1,024 reference texts in `references/`, both cut to their first 96 (LM1B) or 768 (OWT) GPT-2 tokens, with MAUVE seed 42. The reference texts are packed rows of the LM1B test split and of the OWT training data, decoded with the T5 tokenizer like the samples.
+| Dataset | Compression | Gen-PPL | Entropy | MAUVE |
+|---|---:|---:|---:|---:|
+| LM1B | 4× (default) | 85.80 | 4.263 | 0.947 |
+| LM1B | 2× | 74.24 | 4.256 | 0.946 |
+| OWT | 2× | 34.52 | 5.067 | 0.801 |
 
 ### LM1B
 
+Evaluate the default 4× checkpoint:
+
 ```bash
 bash scripts/eval_lm1b.sh --checkpoint checkpoints/jpeg_dlm_lm1b_r0.25.safetensors
+```
+
+Evaluate the 2× checkpoint:
+
+```bash
+bash scripts/eval_lm1b.sh --config configs/jpeg_dlm_lm1b_r0.5.yaml --checkpoint checkpoints/jpeg_dlm_lm1b_r0.5.safetensors --output outputs/lm1b_2x_eval
 ```
 
 ### OWT
