@@ -10,6 +10,7 @@ import torch
 from omegaconf import OmegaConf
 
 from cores.models.jpeg_dlm import JPEGDLM
+from utils.checkpoints import resolve_checkpoint
 from utils.data import decode_token_rows, load_tokenizer
 
 
@@ -63,7 +64,10 @@ def generate_texts(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Generate JPEG-DLM samples.")
-    parser.add_argument("--checkpoint", required=True, help="Checkpoint file (.safetensors).")
+    parser.add_argument(
+        "--checkpoint", required=True,
+        help="Local checkpoint file; released weights are downloaded from Hugging Face if missing.",
+    )
     parser.add_argument("--config", required=True, help="Model configuration (configs/*.yaml).")
     parser.add_argument(
         "--output",
@@ -100,7 +104,8 @@ def main() -> None:
     device = torch.device(args.device)
     if device.type == "cuda" and not torch.cuda.is_available():
         raise RuntimeError("CUDA device requested but CUDA is unavailable")
-    model = JPEGDLM.from_pretrained(args.checkpoint, cfg, device=str(device))
+    checkpoint = resolve_checkpoint(args.checkpoint)
+    model = JPEGDLM.from_pretrained(checkpoint, cfg, device=str(device))
     output = Path(args.output)
     output.mkdir(parents=True, exist_ok=True)
     for seed in args.seeds:

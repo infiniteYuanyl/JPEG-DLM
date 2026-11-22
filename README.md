@@ -28,36 +28,39 @@ pip install -r requirements.txt
 
 ## Checkpoints
 
-Save the weights in `checkpoints/` with the filenames below. Model configurations are included in `configs/`.
+We provide pretrained JPEG-DLM checkpoints for LM1B (2× and 4× compression) and OpenWebText (2× compression).
 
-| Dataset | Compression | Weights |
+| Dataset | Compression | Checkpoint |
 |---|---|---|
-| LM1B | 4× (default) | [jpeg_dlm_lm1b_r0.25.safetensors](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1fCPXLDFJnFIM7xxu1apVDBITg9fbmAxw) |
-| LM1B | 2× | [jpeg_dlm_lm1b_r0.5.safetensors](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1TUgRm2w4dhk6j62lGH3v4N66C1kr8qlY) |
-| OWT-1024 | 2× | [jpeg_dlm_owt1024_r0.5.safetensors](https://drive.usercontent.google.com/download?export=download&confirm=t&id=1ActESuriels9u5kZkjv6P1usNxYIJg5u) |
+| LM1B | 4× (default) | [LM1B-4×](https://huggingface.co/Seele-Yuan/JPEG-DLM/blob/main/jpeg_dlm_lm1b_r0.25.safetensors) |
+| LM1B | 2× | [LM1B-2×](https://huggingface.co/Seele-Yuan/JPEG-DLM/blob/main/jpeg_dlm_lm1b_r0.5.safetensors) |
+| OWT-1024 | 2× | [OWT-2×](https://huggingface.co/Seele-Yuan/JPEG-DLM/blob/main/jpeg_dlm_owt1024_r0.5.safetensors) |
 
 ## Sampling
 
-To sample from a pre-trained model, pass its checkpoint to the sampling script. You can also change the number of sampling steps with `--steps` and the self-conditioning scale with `--sc-scale`. The commands below use the settings from the paper.
+The sampling scripts automatically download the selected checkpoint from Hugging Face. Use `--steps` to change the number of sampling steps and `--sc-scale` to set the self-conditioning scale.
 
 ### LM1B
 
-The default command uses 4× compression:
+Generate samples with the default 4× model:
 
 ```bash
-bash scripts/generate_lm1b.sh --checkpoint checkpoints/jpeg_dlm_lm1b_r0.25.safetensors --steps 32 --sc-scale 3.0
+bash scripts/generate_lm1b.sh
 ```
 
 For 2× compression, select the matching configuration and checkpoint:
 
 ```bash
-bash scripts/generate_lm1b.sh --config configs/jpeg_dlm_lm1b_r0.5.yaml --checkpoint checkpoints/jpeg_dlm_lm1b_r0.5.safetensors --output outputs/lm1b_2x_generations --steps 32 --sc-scale 3.0
+bash scripts/generate_lm1b.sh \
+  --config configs/jpeg_dlm_lm1b_r0.5.yaml \
+  --checkpoint checkpoints/jpeg_dlm_lm1b_r0.5.safetensors \
+  --output outputs/lm1b_2x_generations
 ```
 
 ### OWT
 
 ```bash
-bash scripts/generate_owt1024.sh --checkpoint checkpoints/jpeg_dlm_owt1024_r0.5.safetensors --steps 32 --sc-scale 2.0
+bash scripts/generate_owt1024.sh
 ```
 
 ## Evaluation
@@ -73,19 +76,22 @@ bash scripts/generate_owt1024.sh --checkpoint checkpoints/jpeg_dlm_owt1024_r0.5.
 Evaluate the default 4× checkpoint:
 
 ```bash
-bash scripts/eval_lm1b.sh --checkpoint checkpoints/jpeg_dlm_lm1b_r0.25.safetensors
+bash scripts/eval_lm1b.sh
 ```
 
 Evaluate the 2× checkpoint:
 
 ```bash
-bash scripts/eval_lm1b.sh --config configs/jpeg_dlm_lm1b_r0.5.yaml --checkpoint checkpoints/jpeg_dlm_lm1b_r0.5.safetensors --output outputs/lm1b_2x_eval
+bash scripts/eval_lm1b.sh \
+  --config configs/jpeg_dlm_lm1b_r0.5.yaml \
+  --checkpoint checkpoints/jpeg_dlm_lm1b_r0.5.safetensors \
+  --output outputs/lm1b_2x_eval
 ```
 
 ### OWT
 
 ```bash
-bash scripts/eval_owt1024.sh --checkpoint checkpoints/jpeg_dlm_owt1024_r0.5.safetensors
+bash scripts/eval_owt1024.sh
 ```
 
 ## Citation
